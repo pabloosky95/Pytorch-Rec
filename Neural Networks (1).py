@@ -1,21 +1,9 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# ## 1.0 Data
-# 
-
-# In[1]:
-
-
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 
 
 # ### Import movielense data 100k
-
-# In[2]:
-
 
 data= pd.read_csv("C:\\Users\\Pavlos\\Downloads\\ml-100k\\ml-100k\\u.data",
                   sep="\t",
@@ -29,14 +17,9 @@ data.head(5)
 
 # ### Split the data into training and validation
 
-# In[3]:
-
-
 data_t, data_v =train_test_split(data, test_size=0.2)
 
-
-# In[4]:
-
+# ### Encode the data
 
 # here is a handy function modified from fast.ai
 def proc_col(col, train_col=None):
@@ -48,9 +31,6 @@ def proc_col(col, train_col=None):
         uniq = col.unique()
     name2idx = {o:i for i,o in enumerate(uniq)}
     return name2idx, np.array([name2idx.get(x, -1) for x in col]), len(uniq)
-
-
-# In[5]:
 
 
 def encode_data(data, train=None):
@@ -68,9 +48,6 @@ def encode_data(data, train=None):
     return data
 
 
-# In[6]:
-
-
 # encoding the train and validation data
 data_t = encode_data(data_t)
 data_v = encode_data(data_v, data_t)
@@ -78,67 +55,13 @@ data_v = encode_data(data_v, data_t)
 
 # ## 2.0 Embeding
 
-# In[7]:
-
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F # contains useful loss functions
 
 
-# In[8]:
-
-
-# Create an embeding for every user of size 5, ** can the size of the embeding be tuned?
-num_user_t= data_t.userID.nunique()
-num_items_t= data_t.movieID.nunique()
-embed = nn.Embedding(num_user_t, 5)
-
-
-# In[9]:
-
-
-# given a list of ids we can check the  corresponing embedding for each id
-# This is [1] wil be referenced below
-a = torch.LongTensor([[1,2,3,4,5,1]])
-embed(a)
-
-
-# From the above tensor the first and last rows have the same embeding since they correspond to the same user. They are user's 1 representations
-# 
-# ***__Key points__***
-# * If we have N number of users, M number of movies and K number of features then the total number of parameters is N*K + M*K
-
-# ### Small experiment
-
-# In[10]:
-
-
-emb_size = 3
-user_emb = nn.Embedding(num_user_t, emb_size) # user embedding of size 3
-item_emb = nn.Embedding(num_items_t, emb_size) # item embedding of size 3
-users = torch.LongTensor(data_t.userID.values) # List of users as a tensor
-items = torch.LongTensor(data_t.movieID.values) # list of items as a tensor
-
-
-# In[11]:
-
-
-U=user_emb(users) # corresponding embedings for users (random)
-V= item_emb(items) # corresponding embedings for items (random)
-dot=(U*V).sum(1) # element-wise multiplication
-
-
-# In[12]:
-
-
-torch.max(dot)
-
-
-# # 3.0 Matrix Factorization model
-
-# In[13]:
-
+# Create the model
 
 class MF(nn.Module):
     def __init__(self,num_users,num_items, emb_size=100):  #emb_size= embeding size , how big is the representation of my user
@@ -153,27 +76,14 @@ class MF(nn.Module):
         v=self.item_emb(v) # Similarly looks up the representation vector for movies
         return (u*v).sum(1) # basically what we do here is an element-wise multiplication of the vectors and then sum (dot-product)
             
-        
-        
-
-
-# ## 4.0 Train the model
-
-# In[21]:
-
-
+ # Train the model        
 num_users = data_t.userID.nunique()
 num_items = data_t.movieID.nunique()
 print(num_users, num_items)
 
-
-# In[15]:
-
-
+# define the model
 model = MF(num_users, num_items, emb_size=100)
 
-
-# In[16]:
 
 
 def train(model, epochs=10, lr=0.01, wd=0.0, unsqueeze=False): # epochs is one cycle through the full training dataset
@@ -195,13 +105,7 @@ def train(model, epochs=10, lr=0.01, wd=0.0, unsqueeze=False): # epochs is one c
         print(loss.item()) 
     test_loss(model, unsqueeze)
     
-
-
-# ## 4.1 Evaluation function
-
-# In[17]:
-
-
+# Evaluation Function
 def test_loss(model, unsqueeze=False):
     model.eval()
     users = torch.LongTensor(data_v.userID.values) 
@@ -212,19 +116,11 @@ def test_loss(model, unsqueeze=False):
     y_hat = model(users, items)
     loss = F.mse_loss(y_hat, ratings)
     print("test loss %.3f " % loss.item())
-
-
-# In[18]:
-
-
+    
 train(model, epochs=10, lr=0.05)
 
 
-# ## adding bias
-
-# In[19]:
-
-
+# Add bias
 class MF_bias(nn.Module):
     def __init__(self, num_users, num_items, emb_size=100):
         super(MF_bias, self).__init__()
@@ -245,13 +141,7 @@ class MF_bias(nn.Module):
         return (U*V).sum(1) +  b_u  + b_v
 
 
-# In[20]:
-
-
 model = MF_bias(num_users, num_items, emb_size=100) #.cuda()
-
-
-# In[ ]:
 
 
 
